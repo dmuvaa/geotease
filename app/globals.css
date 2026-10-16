@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #f4f0e7;
+  --paper-raised: #fffdf8;
+  --ink: #17212b;
+  --ink-soft: #59636a;
+  --line: #d9d4c8;
+  --pin: #d34a36;
+  --sea: #174b63;
+  --correct: #347558;
+  --shadow: 0 16px 40px rgb(23 33 43 / 9%);
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #0d1b26;
+  --paper-raised: #142737;
+  --ink: #f3efe6;
+  --ink-soft: #b5c0c5;
+  --line: #294153;
+  --pin: #f07862;
+  --sea: #8cc5d8;
+  --correct: #78b494;
+  --shadow: 0 18px 50px rgb(0 0 0 / 35%);
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-paper: var(--paper);
+  --color-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-muted: var(--ink-soft);
+  --color-line: var(--line);
+  --color-pin: var(--pin);
+  --color-sea: var(--sea);
+  --color-correct: var(--correct);
+  --font-sans: var(--font-source-sans);
+  --font-mono: var(--font-source-code);
+  --font-serif: var(--font-fraunces);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans), sans-serif;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--pin) 28%, transparent);
+}
+
+.raise {
+  box-shadow: var(--shadow);
+}
+
+.clue-in {
+  animation: rise 420ms ease;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.row-yours {
+  background: color-mix(in srgb, var(--pin) 12%, transparent);
+}
+
+.map-stage {
+  background: #05070c;
+  touch-action: none;
+}
+
+.atlas-panel {
+  background-color: var(--sea);
+  background-image:
+    linear-gradient(rgb(255 255 255 / 8%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 8%) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.maplibregl-map {
+  font-family: var(--font-sans), sans-serif;
+  background: transparent;
+}
+
+.maplibregl-canvas,
+.maplibregl-map img {
+  max-width: none;
+}
+
+.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--paper) 88%, transparent) !important;
+  color: var(--ink-soft);
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--ink);
+}
+
+.map-pin {
+  display: block;
+  filter: drop-shadow(0 8px 10px rgb(0 0 0 / 28%));
+  cursor: grab;
+}
+
+.map-pin:active {
+  cursor: grabbing;
+}
+
+.map-target {
+  width: 18px;
+  height: 18px;
+  border: 3px solid white;
+  border-radius: 999px;
+  background: var(--correct);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--correct) 28%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clue-in {
+    animation: none;
+  }
 }
