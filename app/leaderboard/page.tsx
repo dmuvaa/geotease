@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { SiteFrame } from "@/components/ui/SiteFrame";
 import { buttonClass } from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
 import { formatDistance, formatPoints } from "@/lib/game/format";
 import { getMode, getModeBySlug, isGameMode } from "@/lib/game/modes";
 import { listLeaderboard } from "@/lib/leaderboard/store";
@@ -60,7 +61,7 @@ export default async function LeaderboardPage({
             Your best today is {formatPoints(snapshot.yours.score)} points, rank {snapshot.yours.rank}.
           </p>
         ) : null}
-        <div className="mt-8 flex flex-wrap gap-2">
+        <nav aria-label="Filter leaderboard" className="-mx-5 mt-8 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           {filters.map((filter) => {
             const active = filter.view === view;
             return (
@@ -68,13 +69,13 @@ export default async function LeaderboardPage({
                 key={filter.view}
                 href={filter.href}
                 aria-current={active ? "page" : undefined}
-                className={active ? buttonClass("primary") : buttonClass("ghost")}
+                className={cn(active ? buttonClass("primary") : buttonClass("ghost"), "shrink-0")}
               >
                 {filter.label}
               </Link>
             );
           })}
-        </div>
+        </nav>
         {snapshot.rows.length === 0 ? (
           <div className="mt-10 rounded-3xl border border-line bg-raised p-8">
             <p className="font-serif text-3xl">No scores yet today.</p>
@@ -84,17 +85,17 @@ export default async function LeaderboardPage({
             </Link>
           </div>
         ) : (
-          <div className="mt-8 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+          <div className="mt-6">
+            <table className="w-full text-left text-sm">
               <caption className="sr-only">Today’s top scores</caption>
               <thead>
                 <tr className="border-b border-line text-muted">
-                  <th className="py-3 font-medium">Rank</th>
-                  <th className="py-3 font-medium">Player</th>
-                  <th className="py-3 font-medium">Mode</th>
-                  <th className="py-3 font-medium">Score</th>
-                  <th className="py-3 font-medium">Distance</th>
-                  <th className="py-3 font-medium">Clues</th>
+                  <th scope="col" className="py-3 pr-3 font-medium">#</th>
+                  <th scope="col" className="py-3 pr-3 font-medium">Player</th>
+                  <th scope="col" className="hidden py-3 pr-3 font-medium md:table-cell">Mode</th>
+                  <th scope="col" className="py-3 pr-3 text-right font-medium">Score</th>
+                  <th scope="col" className="hidden py-3 pr-3 text-right font-medium sm:table-cell">Distance</th>
+                  <th scope="col" className="hidden py-3 text-right font-medium sm:table-cell">Clues</th>
                 </tr>
               </thead>
               <tbody>
@@ -102,16 +103,24 @@ export default async function LeaderboardPage({
                   const mode = getMode(row.mode);
                   return (
                     <tr key={`${row.rank}-${row.displayName}-${row.mode}-${row.daily}`} className={row.yours ? "row-yours border-b border-line" : "border-b border-line"}>
-                      <td className="py-3 tabular-nums">{row.rank}</td>
-                      <td className="py-3">{row.displayName}</td>
-                      <td className="py-3">
+                      <td className="py-3 pr-3 tabular-nums text-muted">{row.rank}</td>
+                      <td className="py-3 pr-3">
+                        <span className="font-medium">{row.displayName}</span>
+                        {row.yours ? <span className="ml-2 text-xs text-pin">You</span> : null}
+                        <span className="mt-0.5 block text-xs text-muted md:hidden">
+                          {mode.title}
+                          {row.daily ? " · Daily" : ""}
+                          <span className="sm:hidden"> · {formatDistance(row.distanceKm)}</span>
+                        </span>
+                      </td>
+                      <td className="hidden py-3 pr-3 md:table-cell">
                         <span aria-hidden="true">{mode.emoji} </span>
                         {mode.title}
                         {row.daily ? " · Daily" : ""}
                       </td>
-                      <td className="py-3 tabular-nums">{formatPoints(row.score)}</td>
-                      <td className="py-3 tabular-nums">{formatDistance(row.distanceKm)}</td>
-                      <td className="py-3 tabular-nums">{row.cluesUsed}</td>
+                      <td className="py-3 pr-3 text-right font-medium tabular-nums">{formatPoints(row.score)}</td>
+                      <td className="hidden py-3 pr-3 text-right tabular-nums sm:table-cell">{formatDistance(row.distanceKm)}</td>
+                      <td className="hidden py-3 text-right tabular-nums sm:table-cell">{row.cluesUsed}</td>
                     </tr>
                   );
                 })}

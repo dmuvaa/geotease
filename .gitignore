@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local scores and analytics
 /data
+
+# local leaderboard store (used when Supabase is not configured)
+/data/

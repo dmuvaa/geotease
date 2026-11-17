@@ -8,6 +8,7 @@ import { GeoMap } from "@/components/map/GeoMap";
 import { usePreferredDifficulty } from "@/components/map/MapLevelControl";
 import { trackClientEvent } from "@/lib/analytics/client";
 import { recordRound } from "@/lib/game/progress";
+import { formatDistance, formatPoints } from "@/lib/game/format";
 import { clearActiveRun, readActiveRun, writeActiveRun } from "@/lib/game/run-storage";
 import type { GameMode, TargetKind } from "@/types/challenge";
 import type { Difficulty } from "@/types/location";
@@ -52,6 +53,7 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
   const [result, setResult] = useState<GuessResult | null>(null);
   const [summaries, setSummaries] = useState<RoundSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
   const playerName = useSyncExternalStore(subscribePlayer, readPlayerName, () => "");
   const [cameraKey, setCameraKey] = useState("boot:start");
   const [loadKey, setLoadKey] = useState(0);
@@ -85,12 +87,21 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
         }
       }
 
-      const response = await startRound({
-        mode,
-        daily,
-        continuation: null,
-        difficulty: daily ? null : preferredDifficulty,
-      });
+      let response: Awaited<ReturnType<typeof startRound>>;
+      try {
+        response = await startRound({
+          mode,
+          daily,
+          continuation: null,
+          difficulty: daily ? null : preferredDifficulty,
+        });
+      } catch {
+        if (!cancelled) {
+          setError("We couldn’t reach the server. Check your connection and try again.");
+          setPhase("idle");
+        }
+        return;
+      }
       if (cancelled) {
         return;
       }
@@ -229,11 +240,20 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
   }
 
   async function handleReveal() {
-    if (!token || phase === "submitted" || result) {
+    if (!token || revealing || phase === "submitted" || result || clues.length >= totalClues) {
       return;
     }
     setError(null);
-    const response = await revealClue(token);
+    setRevealing(true);
+    let response: Awaited<ReturnType<typeof revealClue>>;
+    try {
+      response = await revealClue(token);
+    } catch {
+      setRevealing(false);
+      setError("We couldn’t reach the server. Check your connection and try again.");
+      return;
+    }
+    setRevealing(false);
     if (!response.ok) {
       showRunError(response.error, phase);
       return;
@@ -251,12 +271,19 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
     }
     setPhase("submitted");
     setError(null);
-    const response = await submitRoundGuess({
-      token,
-      latitude: guess.latitude,
-      longitude: guess.longitude,
-      displayName: playerName,
-    });
+    let response: Awaited<ReturnType<typeof submitRoundGuess>>;
+    try {
+      response = await submitRoundGuess({
+        token,
+        latitude: guess.latitude,
+        longitude: guess.longitude,
+        displayName: playerName,
+      });
+    } catch {
+      setError("We couldn’t reach the server. Your pin is still placed — try submitting again.");
+      setPhase("guess_placed");
+      return;
+    }
     if (!response.ok) {
       showRunError(response.error, "guess_placed");
       return;
@@ -297,7 +324,14 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
     }
     setPhase("next_round");
     setError(null);
-    const response = await startRound({ mode, daily, continuation });
+    let response: Awaited<ReturnType<typeof startRound>>;
+    try {
+      response = await startRound({ mode, daily, continuation });
+    } catch {
+      setError("We couldn’t reach the server. Check your connection and try again.");
+      setPhase("result");
+      return;
+    }
     if (!response.ok) {
       showRunError(response.error, "result");
       return;
@@ -307,6 +341,7 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
 
   function handleReplay() {
     clearActiveRun();
+    setRevealing(false);
     setResult(null);
     setGuess(null);
     setSummaries([]);
@@ -315,6 +350,62 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
     setCameraKey(`replay-${Date.now()}:next`);
     setLoadKey((value) => value + 1);
   }
+
+  const shortcuts = useRef({
+    phase,
+    finished: false,
+    submit: () => {},
+    next: () => {},
+    replay: () => {},
+    reveal: () => {},
+  });
+  useEffect(() => {
+    shortcuts.current = {
+      phase,
+      finished: Boolean(result?.finished),
+      submit: () => void handleSubmit(),
+      next: () => void handleNext(),
+      replay: handleReplay,
+      reveal: () => void handleReveal(),
+    };
+  });
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) {
+        return;
+      }
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) {
+        return;
+      }
+      const current = shortcuts.current;
+      if (event.key === "Enter") {
+        // Let focused buttons and links handle Enter themselves.
+        if (target?.closest("button, a, summary")) {
+          return;
+        }
+        if (current.phase === "guess_placed") {
+          event.preventDefault();
+          current.submit();
+        } else if (current.phase === "result") {
+          event.preventDefault();
+          if (current.finished) {
+            current.replay();
+          } else {
+            current.next();
+          }
+        }
+        return;
+      }
+      if ((event.key === "c" || event.key === "C") && (current.phase === "playing" || current.phase === "guess_placed")) {
+        event.preventDefault();
+        current.reveal();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function handlePlayerName(name: string) {
     localStorage.setItem("geotease-player", name.slice(0, 18));
@@ -339,8 +430,17 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
     };
   }, [result]);
 
+  const announcement = result
+    ? `${result.location.name}, ${result.location.country}. You were ${formatDistance(result.breakdown.distanceKm)} away for ${formatPoints(result.breakdown.score)} points.`
+    : clues.length > 0
+      ? `Clue ${clues.length} of ${totalClues}: ${clues[clues.length - 1]}`
+      : "";
+
   return (
-    <div className="grid min-h-dvh grid-cols-1 grid-rows-[auto_minmax(280px,48svh)_auto] bg-paper md:h-dvh md:min-h-0 md:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)] md:overflow-hidden">
+    <div className="grid h-dvh grid-cols-1 grid-rows-[auto_minmax(200px,42dvh)_minmax(0,1fr)] overflow-hidden bg-paper md:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)]">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
       <GameHeader
         score={sessionScore}
         difficulty={difficulty}
@@ -348,7 +448,7 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
         totalRounds={totalRounds}
         daily={daily}
       />
-      <div className="relative h-full min-h-0 md:col-start-2 md:row-start-2">
+      <div className="relative min-h-0 md:col-start-2 md:row-start-2">
         <GeoMap
           interactive={phase === "playing" || phase === "guess_placed"}
           guess={shownGuess}
@@ -359,8 +459,8 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
         />
       </div>
       <section
-        aria-live="polite"
-        className="border-t border-line bg-raised md:col-start-1 md:row-start-2 md:min-h-0 md:overflow-y-auto md:border-t-0 md:border-r"
+        aria-label={result ? "Result" : "Clues"}
+        className="min-h-0 overflow-y-auto overscroll-contain border-t border-line bg-raised md:col-start-1 md:row-start-2 md:border-t-0 md:border-r"
       >
         <CluePanel
           mode={mode}
@@ -373,6 +473,7 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
           result={result}
           summaries={summaries}
           error={error}
+          revealing={revealing}
           playerName={playerName}
           onPlayerName={handlePlayerName}
           onReveal={() => void handleReveal()}

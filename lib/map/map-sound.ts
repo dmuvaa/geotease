@@ -1,9 +1,41 @@
 let context: AudioContext | null = null;
+
+const SOUND_KEY = "geotease-sound";
+export const SOUND_EVENT = "geotease-sound";
+
+export function isSoundOn() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return localStorage.getItem(SOUND_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function setSoundOn(on: boolean) {
+  try {
+    localStorage.setItem(SOUND_KEY, on ? "on" : "off");
+  } catch {
+    // Storage can be unavailable in private modes; the toggle still applies to this page.
+  }
+  muted = !on;
+  window.dispatchEvent(new Event(SOUND_EVENT));
+}
+
+let muted: boolean | null = null;
 let lastAdjustAt = 0;
 let lastTravelAt = 0;
 
 function audio() {
   if (typeof window === "undefined") {
+    return null;
+  }
+  if (muted === null) {
+    muted = !isSoundOn();
+  }
+  if (muted) {
     return null;
   }
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {

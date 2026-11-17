@@ -41,7 +41,7 @@ export function MapLevelControl({
   fallback,
 }: {
   fallback: Difficulty | null;
-  variant: "bar";
+  variant?: "bar";
 }) {
   const level = usePreferredDifficulty(fallback);
   const caption = labelTierCaption(labelTierFor(level));
@@ -78,7 +78,7 @@ export function MapLevelControl({
               aria-pressed={selected}
               onClick={() => choose(option)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-sm capitalize transition",
+                "min-h-10 rounded-full px-4 text-sm font-medium capitalize transition",
                 selected ? "bg-ink text-paper" : "text-muted hover:text-ink",
               )}
             >
@@ -87,7 +87,9 @@ export function MapLevelControl({
           );
         })}
       </div>
-      <p className="text-sm text-muted">{description}</p>
+      <p className="text-sm text-muted" aria-live="polite">
+        {description}
+      </p>
     </div>
   );
 }

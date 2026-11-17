@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { syncAreaFill } from "@/components/map/AreaFill";
@@ -9,7 +9,7 @@ import { createTargetElement, syncResultLine } from "@/components/map/ResultLine
 import { showsSettlementArea } from "@/lib/game/proximity";
 import { greatCircle, splitAntimeridian } from "@/lib/map/great-circle";
 import { labelTierCaption, labelTierFor } from "@/lib/map/labels";
-import { playMapAdjust, playMapTravel } from "@/lib/map/map-sound";
+import { SOUND_EVENT, isSoundOn, playMapAdjust, playMapTravel, setSoundOn } from "@/lib/map/map-sound";
 import { type AreaGeometry, circlePolygon, visitCoordinates } from "@/lib/map/place-area";
 import { applyLabelTier, satelliteStyle } from "@/lib/map/satellite-style";
 import type { Difficulty, LocationType } from "@/types/location";
@@ -23,6 +23,17 @@ type MapResult = {
   locationName: string;
   country: string;
 };
+
+const WORLD_VIEW = { center: [12, 18] as [number, number], zoom: 1.55, bearing: 0, pitch: 0 };
+
+function subscribeSound(callback: () => void) {
+  window.addEventListener(SOUND_EVENT, callback);
+  return () => window.removeEventListener(SOUND_EVENT, callback);
+}
+
+function motionDuration(ms: number) {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
+}
 
 type Props = {
   interactive: boolean;
@@ -47,6 +58,7 @@ export function GeoMap({ interactive, guess, result, cameraKey, difficulty, onGu
   const [mapError, setMapError] = useState<string | null>(null);
   const [area, setArea] = useState<AreaGeometry | null>(null);
   const [areaKeyLoaded, setAreaKeyLoaded] = useState("");
+  const soundOn = useSyncExternalStore(subscribeSound, isSoundOn, () => true);
 
   const areaKey =
     result && showsSettlementArea(result.distanceKm, result.locationType)
@@ -138,7 +150,7 @@ export function GeoMap({ interactive, guess, result, cameraKey, difficulty, onGu
 
     const slowTimer = window.setTimeout(() => {
       if (!mapRef.current?.isStyleLoaded()) {
-        setMapError("The map is taking a while to load. You can still enter coordinates.");
+        setMapError("The globe is taking a while to load. You can still type coordinates in the clue panel.");
       }
     }, 8000);
 
@@ -286,29 +298,39 @@ export function GeoMap({ interactive, guess, result, cameraKey, difficulty, onGu
     if (!map || !lib || !ready) {
       return;
     }
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const duration = reducedMotion ? 0 : 900;
     if (result) {
-      const bounds = new lib.LngLatBounds();
-      bounds.extend([result.guess.longitude, result.guess.latitude]);
-      bounds.extend([result.target.longitude, result.target.latitude]);
-      if (visibleArea) {
-        visitCoordinates(visibleArea, (longitude, latitude) => {
-          bounds.extend([longitude, latitude]);
-        });
-      }
-      map.fitBounds(bounds, {
-        padding: { top: 64, right: 64, bottom: 72, left: 64 },
-        maxZoom: visibleArea ? 11 : 12,
-        duration,
-      });
+      fitResult(map, lib, result, visibleArea, motionDuration(900));
       return;
     }
     if (cameraKey.endsWith(":start")) {
       return;
     }
-    map.flyTo({ center: [12, 18], zoom: 1.55, bearing: 0, pitch: 0, duration });
+    map.flyTo({ ...WORLD_VIEW, duration: motionDuration(900) });
   }, [cameraKey, ready, result, visibleArea]);
+
+  function worldView() {
+    mapRef.current?.flyTo({ ...WORLD_VIEW, duration: motionDuration(800) });
+  }
+
+  function focusPin() {
+    const map = mapRef.current;
+    if (!map || !guess) {
+      return;
+    }
+    map.flyTo({
+      center: [guess.longitude, guess.latitude],
+      zoom: Math.max(map.getZoom(), 4),
+      duration: motionDuration(800),
+    });
+  }
+
+  function reframeResult() {
+    const map = mapRef.current;
+    const lib = libRef.current;
+    if (map && lib && result) {
+      fitResult(map, lib, result, visibleArea, motionDuration(800));
+    }
+  }
 
   return (
     <div className="map-stage relative h-full min-h-[240px]">
@@ -317,20 +339,88 @@ export function GeoMap({ interactive, guess, result, cameraKey, difficulty, onGu
         Satellite globe. {labelTierCaption(labelTierFor(difficulty))}. Drag to pan, scroll or pinch to zoom, and twist
         to rotate. Click or tap to place a guess, then drag the pin to move it.
       </p>
-      {interactive && !result ? (
-        <div className="pointer-events-none absolute left-3 top-3">
-          <p className="rounded-full bg-black/55 px-3 py-1 text-xs text-white/90">
-            {guess ? "Drag the pin to move it" : "Drag, zoom, and spin. Click to pin."}
+      <div className="pointer-events-none absolute left-3 top-3 flex max-w-[calc(100%-5rem)] flex-col items-start gap-2">
+        {interactive && !result ? (
+          <p className="rounded-full bg-black/60 px-3 py-1.5 text-xs text-white/95">
+            {guess ? (
+              <>
+                <span className="[@media(pointer:coarse)]:hidden">Click elsewhere or drag the pin to move it</span>
+                <span className="hidden [@media(pointer:coarse)]:inline">Tap elsewhere or drag the pin to move it</span>
+              </>
+            ) : (
+              <>
+                <span className="[@media(pointer:coarse)]:hidden">Drag to spin, scroll to zoom, click to drop a pin</span>
+                <span className="hidden [@media(pointer:coarse)]:inline">Drag to spin, pinch to zoom, tap to drop a pin</span>
+              </>
+            )}
           </p>
+        ) : null}
+        {ready ? (
+          <div className="pointer-events-auto flex flex-wrap gap-1.5">
+            {result ? (
+              <button type="button" className="map-overlay-button" onClick={reframeResult}>
+                Show both points
+              </button>
+            ) : (
+              <>
+                <button type="button" className="map-overlay-button" onClick={worldView}>
+                  World view
+                </button>
+                {guess ? (
+                  <button type="button" className="map-overlay-button" onClick={focusPin}>
+                    Go to my pin
+                  </button>
+                ) : null}
+              </>
+            )}
+            <button
+              type="button"
+              className="map-overlay-button"
+              aria-pressed={soundOn}
+              onClick={() => setSoundOn(!soundOn)}
+              title={soundOn ? "Mute map sounds" : "Turn map sounds on"}
+            >
+              {soundOn ? "Sound on" : "Sound off"}
+            </button>
+          </div>
+        ) : null}
+      </div>
+      {!ready && !mapError ? (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center" role="status">
+          <p className="rounded-full bg-black/55 px-4 py-2 text-sm text-white/90">Loading the globe…</p>
         </div>
       ) : null}
       {mapError ? (
-        <div className="pointer-events-none absolute inset-x-4 top-4 rounded-2xl bg-paper/95 px-4 py-3 text-sm text-ink">
+        <div role="status" className="pointer-events-none absolute inset-x-4 bottom-10 rounded-2xl bg-paper/95 px-4 py-3 text-sm text-ink">
           {mapError}
         </div>
       ) : null}
     </div>
   );
+}
+
+function fitResult(
+  map: MapLibreMap,
+  lib: typeof import("maplibre-gl"),
+  result: MapResult,
+  area: AreaGeometry | null,
+  duration: number,
+) {
+  const bounds = new lib.LngLatBounds();
+  bounds.extend([result.guess.longitude, result.guess.latitude]);
+  bounds.extend([result.target.longitude, result.target.latitude]);
+  if (area) {
+    visitCoordinates(area, (longitude, latitude) => {
+      bounds.extend([longitude, latitude]);
+    });
+  }
+  const compact = map.getContainer().clientHeight < 360;
+  const pad = compact ? 36 : 64;
+  map.fitBounds(bounds, {
+    padding: { top: pad + (compact ? 24 : 16), right: pad, bottom: pad, left: pad },
+    maxZoom: area ? 11 : 12,
+    duration,
+  });
 }
 
 function isAreaGeometry(value: unknown): value is AreaGeometry {
