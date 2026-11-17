@@ -233,12 +233,6 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
     persist({ guess: next });
   }
 
-  function handleResetPin() {
-    setGuess(null);
-    setPhase("playing");
-    persist({ guess: null });
-  }
-
   async function handleReveal() {
     if (!token || revealing || phase === "submitted" || result || clues.length >= totalClues) {
       return;
@@ -465,10 +459,8 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
         <CluePanel
           mode={mode}
           phase={phase}
-          difficulty={difficulty}
           clues={clues}
           totalClues={totalClues}
-          targetKind={targetKind}
           guess={guess}
           result={result}
           summaries={summaries}
@@ -478,8 +470,6 @@ export function GameShell({ mode, daily }: { mode: GameMode; daily: boolean }) {
           onPlayerName={handlePlayerName}
           onReveal={() => void handleReveal()}
           onSubmit={() => void handleSubmit()}
-          onResetPin={handleResetPin}
-          onGuess={handleGuess}
           onNext={() => void handleNext()}
           onReplay={handleReplay}
         />
