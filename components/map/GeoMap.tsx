@@ -150,7 +150,7 @@ export function GeoMap({ interactive, guess, result, cameraKey, difficulty, onGu
 
     const slowTimer = window.setTimeout(() => {
       if (!mapRef.current?.isStyleLoaded()) {
-        setMapError("The globe is taking a while to load. You can still type coordinates in the clue panel.");
+        setMapError("The globe is taking a while to load…");
       }
     }, 8000);
 
