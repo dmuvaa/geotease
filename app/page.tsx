@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChallengeCard } from "@/components/game/ChallengeCard";
+import { MapLevelControl } from "@/components/map/MapLevelControl";
 import { PlayerProgress } from "@/components/game/PlayerProgress";
 import { ShareChallenge } from "@/components/game/ShareChallenge";
 import { SiteFrame } from "@/components/ui/SiteFrame";
@@ -66,11 +67,14 @@ export default function HomePage() {
         <div className="flex items-end justify-between gap-5 border-b border-line pb-4">
           <div>
             <h2 className="font-serif text-3xl">Choose how to play</h2>
-            <p className="mt-1 text-muted">Five rounds per game. Your difficulty choice sets the challenge pool.</p>
+            <p className="mt-1 text-muted">Five rounds per game. Difficulty sets which places you get.</p>
           </div>
           <Link href="/how-to-play" className="hidden text-sm text-sea hover:underline sm:block">
             How scoring works
           </Link>
+        </div>
+        <div className="border-b border-line py-4">
+          <MapLevelControl fallback={null} />
         </div>
         <div className="grid md:grid-cols-3">
           {MODES.map((mode) => (

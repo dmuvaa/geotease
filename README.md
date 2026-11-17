@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GeoTease
 
-## Getting Started
+A geography guessing game played on a satellite globe. Read a clue, drop one pin, and see how close you were.
 
-First, run the development server:
+## Ways to play
+
+- **Where Is It?** — a place is described in stages. Open more clues if you need them, but each one lowers the score multiplier.
+- **Find It on the Map** — the instruction *is* the puzzle: a border, a confluence, a direction.
+- **Where Did This Happen?** — find where an event, discovery or treaty took place.
+
+Free play is five rounds at the difficulty you choose (Easy, Medium, Hard). Difficulty picks the challenge pool and how many map labels are shown. The **Daily** challenge gives everyone the same three places each UTC day, and scores land on a daily leaderboard.
+
+### Controls
+
+| Action | Mouse / touch | Keyboard |
+| --- | --- | --- |
+| Spin, zoom, tilt the globe | Drag, scroll or pinch, two-finger twist | Arrow keys, `+` / `-` (when the map is focused) |
+| Drop or move your pin | Click / tap, or drag the pin | — |
+| Open the next clue | **Next clue** | `C` |
+| Submit / continue | **Submit guess** / **Next challenge** | `Enter` |
+
+You can also type coordinates (`48.86, 2.35` or `48.86 N`, `2.35 E`) under **Type coordinates instead**. Map sounds can be muted from the map overlay.
+
+## Running locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm test         # scoring, proximity and map helper tests
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Requires Node 22+. `npm install` copies MapLibre's worker files into `public/` (see `postinstall`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+| --- | --- |
+| `GEOTEASE_SECRET` | Signs round tokens. **Set this in production**; without it a dev secret is used and rounds can be forged. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Optional. When set, results and analytics are written to Supabase (schema in `supabase/migrations`). Otherwise the leaderboard is kept in `data/leaderboard.json`. |
 
-## Learn More
+## Project layout
 
-To learn more about Next.js, take a look at the following resources:
+- `app/` — routes (`/`, `/play/*`, `/daily/*`, `/leaderboard`, `/how-to-play`) and server actions.
+- `components/game/` — the game shell, clue panel, results and sharing.
+- `components/map/` — the MapLibre globe, pins, result line and settlement outlines.
+- `lib/challenges/catalog.ts` — the published challenge catalog.
+- `lib/game/` — round engine, signed tokens, progress and share text.
+- `lib/scoring/` — distance scoring and multipliers.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See `DESIGN.md` for the visual direction.

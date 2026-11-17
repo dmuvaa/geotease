@@ -52,6 +52,84 @@ body {
   background: color-mix(in srgb, var(--pin) 28%, transparent);
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--sea);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+:where(.rounded-full):focus-visible {
+  border-radius: 999px;
+}
+
+.maplibregl-canvas:focus-visible {
+  outline: 3px solid var(--pin);
+  outline-offset: -3px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 0.35em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--paper);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--ink);
+}
+
+.action-bar {
+  background: color-mix(in srgb, var(--paper-raised) 94%, transparent);
+  backdrop-filter: blur(8px);
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--line) 70%, transparent) 0%,
+    color-mix(in srgb, var(--line) 35%, transparent) 50%,
+    color-mix(in srgb, var(--line) 70%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.map-overlay-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  background: rgb(10 16 24 / 72%);
+  padding: 0 0.9rem;
+  font-size: 0.8125rem;
+  color: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(6px);
+  transition: background 150ms ease;
+}
+
+.map-overlay-button:hover {
+  background: rgb(10 16 24 / 88%);
+}
+
 .raise {
   box-shadow: var(--shadow);
 }
@@ -127,7 +205,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clue-in {
+  .clue-in,
+  .skeleton {
     animation: none;
   }
 }

@@ -16,7 +16,7 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="border-b border-line">
+    <header className="border-b border-line bg-paper">
       <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-paper focus:px-3 focus:py-2">
         Skip to content
       </a>
@@ -32,7 +32,10 @@ export function SiteHeader() {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={cn("min-h-11 py-2", active ? "text-ink" : "text-muted hover:text-ink")}
+                className={cn(
+                  "inline-flex min-h-11 items-center border-b-2 py-2",
+                  active ? "border-pin font-medium text-ink" : "border-transparent text-muted hover:text-ink",
+                )}
               >
                 {link.label}
               </Link>
